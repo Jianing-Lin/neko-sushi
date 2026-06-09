@@ -33,7 +33,19 @@ SUSHI_DB.forEach(s => { TILE_CACHE[s.id] = generateSushiImage(s, false); BELT_CA
 function getPixelTrophy() {
     const cvs = document.createElement('canvas'); const ctx = cvs.getContext('2d');
     cvs.width = 24; cvs.height = 24;
-    const pxls = ["000000000000","011111111110","110111111011","110111111011","011111111110","000111111000","000011110000","000001100000","000011110000","000111111000","000000000000"];
+    const pxls = [
+        "000000000000",
+        "011111111110",
+        "110111111011",
+        "110111111011",
+        "011111111110",
+        "000111111000",
+        "000011110000",
+        "000001100000",
+        "000011110000",
+        "000111111000",
+        "000000000000"
+    ];
     for(let y=0; y<pxls.length; y++) for(let x=0; x<pxls[y].length; x++) {
         if(pxls[y][x]==='1') { ctx.fillStyle = '#fde047'; ctx.fillRect(x*2, y*2, 2, 2); }
         if(pxls[y][x]==='0') { ctx.fillStyle = '#000'; ctx.fillRect(x*2, y*2, 2, 2); }
@@ -103,12 +115,8 @@ function drawCanvases() {
 drawCanvases();
 
 // ==========================================
-// 3. 🌟 响应式生成引擎与生存机制 🌟
+// 3. 生存与中场休息逻辑 
 // ==========================================
-// 强制将变量与CSS一致
-const TILE_W = 40; 
-const TILE_H = 48;
-
 let leaderboard = JSON.parse(localStorage.getItem('nekoSushiRankings')) || [];
 
 const boardEl = document.getElementById('board');
@@ -160,30 +168,26 @@ startBtn.addEventListener('click', () => {
     }, 100);
 });
 
+// 🌟 修复恶性死局 BUG 的核心位置 🌟
 function generateLevel(lvl) {
     tilesData = []; trayArray = []; boardEl.innerHTML = ''; trayEl.innerHTML = '';
     
-    // 动态获取当前屏幕分配给消除区域的具体尺寸
-    const boardWidth = boardEl.clientWidth;
-    const boardHeight = boardEl.clientHeight;
-
+    // 组数 = (12 + (lvl -1) * 3) 
     let groups = 12 + (lvl - 1) * 3;
     let deck = [];
     for(let i=0; i<groups; i++) {
         const type = SUSHI_DB[Math.floor(Math.random() * SUSHI_DB.length)];
-        deck.push(type, type, type);
+        deck.push(type, type, type); // 每次塞入3张，保证总是3的倍数
     }
     deck.sort(() => Math.random() - 0.5);
 
     const layers = 4 + Math.floor(lvl/2);
     
+    // 不再用 itemsThisLayer 截断，而是把 deck 里的每一张牌都精准分配到各个 Z 轴层！
     for(let i=0; i<deck.length; i++) {
-        const z = i % layers; 
-        // 🌟 自适应安全边界，保证无论多小的手机屏幕都不会溢出 🌟
-        const maxX = Math.max(5, boardWidth - TILE_W - 10);
-        const maxY = Math.max(5, boardHeight - TILE_H - 10);
-        const x = 5 + Math.random() * (maxX - 5); 
-        const y = 5 + Math.random() * (maxY - 5);
+        const z = i % layers; // 均匀分配到各个层，防止 Math.floor 吞掉尾数
+        const x = 20 + Math.random() * 370; 
+        const y = 20 + Math.random() * 110;
         createTile(i, deck[i], x, y, z);
     }
     
@@ -200,12 +204,11 @@ function createTile(id, sDef, x, y, z) {
     boardEl.appendChild(el);
 }
 
-// 采用动态宽高计算遮挡，适配自适应尺寸
 function updateBoard() {
     tilesData.forEach(t1 => {
         let blocked = false;
         for(let t2 of tilesData) {
-            if(t2.z > t1.z && !(t1.x+TILE_W-2 <= t2.x+2 || t1.x+2 >= t2.x+TILE_W-2 || t1.y+TILE_H-2 <= t2.y+2 || t1.y+2 >= t2.y+TILE_H-2)) {
+            if(t2.z > t1.z && !(t1.x+44-2 <= t2.x+2 || t1.x+2 >= t2.x+44-2 || t1.y+52-2 <= t2.y+2 || t1.y+2 >= t2.y+52-2)) {
                 blocked = true; break;
             }
         }
@@ -214,7 +217,7 @@ function updateBoard() {
 }
 
 // ==========================================
-// 4. 消除、传送与判定
+// 4. 消除、传送与 休息(Intermission) 判定
 // ==========================================
 function handleTileClick(tile) {
     if(tile.element.classList.contains('blocked') || trayArray.length >= 7) return;
@@ -262,8 +265,6 @@ function checkMatches() {
 
 function serveToBelt(sDef) {
     const img = document.createElement('img'); img.src = BELT_CACHE[sDef.id]; img.className = 'sliding-sushi';
-    
-    // 移动端不依赖 hover，PC 端保留
     img.addEventListener('mouseenter', () => { document.getElementById('tt-name').innerText = sDef.name; document.getElementById('tt-mat').innerText = sDef.mat; tooltip.classList.remove('hidden'); });
     img.addEventListener('mousemove', e => { tooltip.style.left = e.pageX + 15 + 'px'; tooltip.style.top = e.pageY + 15 + 'px'; });
     img.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
@@ -295,6 +296,7 @@ function renderLeaderboard(targetId) {
         return;
     }
     
+    // 🌟 修复：严格切割，只展示 Top 3 🌟
     listEl.innerHTML = leaderboard.slice(0, 3).map((entry, idx) => {
         let medal = '';
         if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
