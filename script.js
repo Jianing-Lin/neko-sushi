@@ -1,5 +1,5 @@
 // ==========================================
-// 1. 寿司图鉴配置与图像渲染
+// 1. 寿司图鉴配置
 // ==========================================
 const SUSHI_DB = [
     { id: "sake", name: "Sake (Salmon)", mat: "Atlantic Salmon", colors: { 'A': '#f97316', 'B': '#fdba74' }, pixels: ["000011111111110000","0001AAAAAAAAAAB100","001ABAAAAAAAABAA10","01AABAAAAAAABAAAA1","1AAABAAAAAABAAAAA1","111111111111111111","01rrrrrrrrrrrrrs10","01rrrrrrrrrrrsss10","001rrrrrrrrrsss100","000111111111111000"] },
@@ -27,11 +27,9 @@ function generateSushiImage(sDef, withPlate = false) {
     }
     return cvs.toDataURL();
 }
-
 const TILE_CACHE = {}; const BELT_CACHE = {};
 SUSHI_DB.forEach(s => { TILE_CACHE[s.id] = generateSushiImage(s, false); BELT_CACHE[s.id] = generateSushiImage(s, true); });
 
-// 像素奖杯图标
 function getPixelTrophy() {
     const cvs = document.createElement('canvas'); const ctx = cvs.getContext('2d');
     cvs.width = 24; cvs.height = 24;
@@ -45,50 +43,26 @@ function getPixelTrophy() {
 document.getElementById('lb-btn').innerHTML = `<img src="${getPixelTrophy()}" style="width:24px; height:24px; image-rendering:pixelated;">`;
 
 // ==========================================
-// 2. 数据存储 (本地持久化模拟云端)
+// 2. 猫主厨与吃客动画
 // ==========================================
-async function fetchCloudLeaderboard() {
-    return new Promise((resolve) => {
-        const data = JSON.parse(localStorage.getItem('NekoCloudRankings')) || [];
-        resolve(data);
-    });
-}
-async function saveToCloudLeaderboard(newRecord) {
-    return new Promise((resolve) => {
-        let currentBoard = JSON.parse(localStorage.getItem('NekoCloudRankings')) || [];
-        currentBoard.push(newRecord);
-        // 按等级 > 食量排序
-        currentBoard.sort((a,b) => b.level !== a.level ? b.level - a.level : b.score - a.score);
-        localStorage.setItem('NekoCloudRankings', JSON.stringify(currentBoard));
-        resolve();
-    });
-}
-async function clearCloudLeaderboard() {
-    return new Promise((resolve) => {
-        localStorage.removeItem('NekoCloudRankings');
-        resolve();
-    });
-}
-
-// 身份持久化记忆
 const CHEF_LIST = [
     { id: 'bamo', name: 'BAMO', colors: { 'W': '#f8fafc', 'S': '#f8fafc' } }, 
     { id: 'coffee', name: 'COFFEE', colors: { 'W': '#9ca3af', 'S': '#4b5563' } },
     { id: 'mango', name: 'MANGO', colors: { 'W': '#fcd34d', 'S': '#ea580c' } }
 ];
-let myPlayerName = localStorage.getItem('NekoMyName') || "Boss";
-let currentChefIdx = parseInt(localStorage.getItem('NekoMyChefIdx')) || 0;
+let currentChefIdx = 0;
 
-document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
+document.getElementById('prev-chef').addEventListener('click', () => {
+    if(gamePhase === 'PLAYING') return; 
+    currentChefIdx = (currentChefIdx - 1 + CHEF_LIST.length) % CHEF_LIST.length;
+    document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
+});
+document.getElementById('next-chef').addEventListener('click', () => {
+    if(gamePhase === 'PLAYING') return;
+    currentChefIdx = (currentChefIdx + 1) % CHEF_LIST.length;
+    document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
+});
 
-function saveMyIdentity() {
-    localStorage.setItem('NekoMyName', myPlayerName);
-    localStorage.setItem('NekoMyChefIdx', currentChefIdx);
-}
-
-// ==========================================
-// 3. 画布渲染引擎
-// ==========================================
 const chefCvs = document.getElementById('chefCanvas'); const cCtx = chefCvs.getContext('2d');
 const custCvs = document.getElementById('customerCanvas'); const custCtx = custCvs.getContext('2d');
 const PXL = 3; chefCvs.width = 100 * PXL; chefCvs.height = 60 * PXL;
@@ -129,22 +103,14 @@ function drawCanvases() {
 drawCanvases();
 
 // ==========================================
-// 4. 游戏流控：选择、自适应生成、判定
+// 3. 🌟 响应式生成引擎与生存机制 🌟
 // ==========================================
-document.getElementById('prev-chef').addEventListener('click', () => {
-    if(gamePhase === 'PLAYING') return; 
-    currentChefIdx = (currentChefIdx - 1 + CHEF_LIST.length) % CHEF_LIST.length;
-    document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
-    saveMyIdentity();
-});
-document.getElementById('next-chef').addEventListener('click', () => {
-    if(gamePhase === 'PLAYING') return;
-    currentChefIdx = (currentChefIdx + 1) % CHEF_LIST.length;
-    document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
-    saveMyIdentity();
-});
+// 强制将变量与CSS一致
+const TILE_W = 40; 
+const TILE_H = 48;
 
-const TILE_W = 40; const TILE_H = 48;
+let leaderboard = JSON.parse(localStorage.getItem('nekoSushiRankings')) || [];
+
 const boardEl = document.getElementById('board');
 const trayEl = document.getElementById('tray');
 const beltEl = document.getElementById('belt-items');
@@ -159,8 +125,6 @@ let graceTime = 0;
 
 startBtn.addEventListener('click', () => {
     if (gamePhase === 'IDLE' || gamePhase === 'OVER') {
-        const inputName = prompt("Enter your Manager Name for Leaderboard:", myPlayerName);
-        if (inputName) { myPlayerName = inputName.trim().substring(0, 10); saveMyIdentity(); }
         level = 1; score = 0; 
         document.getElementById('score-display').innerText = `000`;
     } else if (gamePhase === 'INTERMISSION') {
@@ -189,16 +153,17 @@ startBtn.addEventListener('click', () => {
         } else {
             statusMsg.innerText = `KEEP FEEDING!`;
             statusMsg.style.color = '#10b981';
+            
             const sushiOnBelt = document.querySelectorAll('.sliding-sushi').length;
             if(sushiOnBelt === 0) gameOver(false);
         }
     }, 100);
 });
 
-// 🌟 修复恶性死局 BUG 且自适应视口 🌟
 function generateLevel(lvl) {
     tilesData = []; trayArray = []; boardEl.innerHTML = ''; trayEl.innerHTML = '';
     
+    // 动态获取当前屏幕分配给消除区域的具体尺寸
     const boardWidth = boardEl.clientWidth;
     const boardHeight = boardEl.clientHeight;
 
@@ -206,20 +171,22 @@ function generateLevel(lvl) {
     let deck = [];
     for(let i=0; i<groups; i++) {
         const type = SUSHI_DB[Math.floor(Math.random() * SUSHI_DB.length)];
-        deck.push(type, type, type); // 精确投入3张
+        deck.push(type, type, type);
     }
     deck.sort(() => Math.random() - 0.5);
 
     const layers = 4 + Math.floor(lvl/2);
     
     for(let i=0; i<deck.length; i++) {
-        const z = i % layers; // 均匀分配层级，不丢牌
+        const z = i % layers; 
+        // 🌟 自适应安全边界，保证无论多小的手机屏幕都不会溢出 🌟
         const maxX = Math.max(5, boardWidth - TILE_W - 10);
         const maxY = Math.max(5, boardHeight - TILE_H - 10);
         const x = 5 + Math.random() * (maxX - 5); 
         const y = 5 + Math.random() * (maxY - 5);
         createTile(i, deck[i], x, y, z);
     }
+    
     updateBoard();
 }
 
@@ -233,6 +200,7 @@ function createTile(id, sDef, x, y, z) {
     boardEl.appendChild(el);
 }
 
+// 采用动态宽高计算遮挡，适配自适应尺寸
 function updateBoard() {
     tilesData.forEach(t1 => {
         let blocked = false;
@@ -245,6 +213,9 @@ function updateBoard() {
     });
 }
 
+// ==========================================
+// 4. 消除、传送与判定
+// ==========================================
 function handleTileClick(tile) {
     if(tile.element.classList.contains('blocked') || trayArray.length >= 7) return;
     tilesData = tilesData.filter(t => t.id !== tile.id);
@@ -278,7 +249,8 @@ function checkMatches() {
                 statusMsg.innerText = "RESTING...";
                 statusMsg.style.color = '#fde047';
                 
-                startBtn.disabled = false; startBtn.innerText = "NEXT LEVEL";
+                startBtn.disabled = false;
+                startBtn.innerText = "NEXT LEVEL";
                 document.getElementById('lb-btn').disabled = false;
                 document.querySelectorAll('.chef-arrow').forEach(a => a.style.display = 'block'); 
             }
@@ -290,6 +262,8 @@ function checkMatches() {
 
 function serveToBelt(sDef) {
     const img = document.createElement('img'); img.src = BELT_CACHE[sDef.id]; img.className = 'sliding-sushi';
+    
+    // 移动端不依赖 hover，PC 端保留
     img.addEventListener('mouseenter', () => { document.getElementById('tt-name').innerText = sDef.name; document.getElementById('tt-mat').innerText = sDef.mat; tooltip.classList.remove('hidden'); });
     img.addEventListener('mousemove', e => { tooltip.style.left = e.pageX + 15 + 'px'; tooltip.style.top = e.pageY + 15 + 'px'; });
     img.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
@@ -312,47 +286,45 @@ function serveToBelt(sDef) {
 }
 
 // ==========================================
-// 5. 排行榜与管理员后门 (密码: bamomango)
+// 5. 排行榜 (严格前3名) 与数据重置
 // ==========================================
-async function renderLeaderboard(targetId) {
+function renderLeaderboard(targetId) {
     const listEl = document.getElementById(targetId);
-    listEl.innerHTML = '<li class="empty-lb">Loading data...</li>';
-    
-    const boardData = await fetchCloudLeaderboard();
-    if (boardData.length === 0) {
+    if (leaderboard.length === 0) {
         listEl.innerHTML = '<li class="empty-lb">No records yet.</li>';
         return;
     }
     
-    listEl.innerHTML = boardData.slice(0, 3).map((entry, idx) => {
+    listEl.innerHTML = leaderboard.slice(0, 3).map((entry, idx) => {
         let medal = '';
         if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
-        return `<li>${medal}#${idx+1} <b>${entry.player}</b> (${entry.chef}) - Lvl ${entry.level} / ${entry.score} Plates</li>`;
+        return `<li>${medal}#${idx+1} [${entry.chef}] - Lvl ${entry.level} / ${entry.score} Plates</li>`;
     }).join('');
 }
 
-async function gameOver(isTrayFull) {
+function gameOver(isTrayFull) {
     gamePhase = 'OVER';
     clearInterval(survivalTimer);
     statusMsg.innerText = "GAME OVER";
     statusMsg.style.color = '#ef4444';
     
     if (score > 0 || level > 1) {
-        await saveToCloudLeaderboard({ 
-            player: myPlayerName,
-            chef: CHEF_LIST[currentChefIdx].name, 
-            level: level, 
-            score: score 
+        leaderboard.push({ chef: CHEF_LIST[currentChefIdx].name, level: level, score: score });
+        leaderboard.sort((a,b) => {
+            if (b.level !== a.level) return b.level - a.level;
+            return b.score - a.score;
         });
+        localStorage.setItem('nekoSushiRankings', JSON.stringify(leaderboard));
     }
     
-    await renderLeaderboard('end-leaderboard-list');
+    renderLeaderboard('end-leaderboard-list');
 
     document.getElementById('modal-title').innerText = isTrayFull ? "TRAY IS FULL!" : "BELT IS EMPTY!";
     document.getElementById('modal-desc').innerText = `You reached Level ${level} with ${score} plates.`;
     document.getElementById('modal').classList.remove('hidden');
 }
 
+// 重新开始游戏
 document.getElementById('restart-btn').addEventListener('click', () => {
     document.getElementById('modal').classList.add('hidden');
     boardEl.innerHTML = '<div class="empty-state">Store Closed.</div>';
@@ -368,36 +340,21 @@ document.getElementById('restart-btn').addEventListener('click', () => {
     gamePhase = 'IDLE';
 });
 
-document.getElementById('lb-btn').addEventListener('click', async () => {
+// 独立排行榜弹窗
+document.getElementById('lb-btn').addEventListener('click', () => {
     if(gamePhase === 'PLAYING') return; 
+    renderLeaderboard('global-leaderboard-list');
     document.getElementById('lb-modal').classList.remove('hidden');
-    await renderLeaderboard('global-leaderboard-list');
 });
 document.getElementById('close-lb').addEventListener('click', () => {
     document.getElementById('lb-modal').classList.add('hidden');
 });
 
-// 🌟 管理员隐藏后门 (连续点击5次标题) 🌟
-let adminClickCount = 0;
-let adminClickTimer = null;
-
-document.getElementById('lb-title').addEventListener('click', async () => {
-    adminClickCount++;
-    clearTimeout(adminClickTimer);
-    adminClickTimer = setTimeout(() => { adminClickCount = 0; }, 1000);
-
-    if (adminClickCount === 5) {
-        adminClickCount = 0; 
-        const pwd = prompt("⚠️ ADMIN MODE ⚠️\nEnter the password to wipe the leaderboard:");
-        
-        if (pwd === "bamomango") { 
-            if(confirm("Are you SURE? This wipes data for everyone!")) {
-                await clearCloudLeaderboard();
-                await renderLeaderboard('global-leaderboard-list');
-                alert("Leaderboard wiped successfully.");
-            }
-        } else if (pwd !== null) {
-            alert("Access Denied: Incorrect password.");
-        }
+// 重置排行榜数据
+document.getElementById('reset-lb-btn').addEventListener('click', () => {
+    if(confirm("Delete all records? This cannot be undone.")) {
+        leaderboard = [];
+        localStorage.removeItem('nekoSushiRankings');
+        renderLeaderboard('global-leaderboard-list');
     }
 });
