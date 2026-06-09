@@ -62,7 +62,7 @@
             <h1 id="modal-title">GAME OVER</h1>
             <p id="modal-desc">The belt is empty! Customer left!</p>
             <div class="leaderboard-container relative">
-                <h3>--- TOP 3 RECORD ---</h3>
+                <h3>--- TOP RECORD ---</h3>
                 <ol id="end-leaderboard-list"></ol>
             </div>
             <button id="restart-btn">PLAY AGAIN</button>
@@ -71,8 +71,11 @@
         <div id="lb-modal" class="modal hidden">
             <div class="leaderboard-container relative">
                 <button id="close-lb" class="close-btn">X</button>
-                <h3 id="lb-title" style="color: #fde047; cursor: pointer; user-select: none;">--- HALL OF FAME ---</h3>
+                <h3 style="color: #fde047;">--- HALL OF FAME ---</h3>
                 <ol id="global-leaderboard-list"></ol>
+                <div style="text-align: center; margin-top: 15px;">
+                    <button id="reset-lb-btn" class="danger-btn">RESET DATA</button>
+                </div>
             </div>
         </div>
     </div>
