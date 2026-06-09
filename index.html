@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OMAKASE RUSH: Survival</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="arcade-machine">
+        
+        <div class="machine-header">
+            <div class="header-box">LVL <span id="level-display" class="highlight">1</span></div>
+            <div class="header-box" id="status-msg" style="color: #10b981;">NEKO SUSHI RUSH</div>
+            <div class="header-box">SERVED <span id="score-display" class="highlight">000</span></div>
+        </div>
+
+        <div class="split-screen">
+            <div class="left-kitchen">
+                <div class="canvas-container">
+                    <div id="chef-badge" class="chef-badge">BAMO</div>
+                    <button id="prev-chef" class="chef-arrow">◀</button>
+                    <canvas id="chefCanvas"></canvas>
+                    <button id="next-chef" class="chef-arrow">▶</button>
+                    <div class="scanline"></div>
+                </div>
+                
+                <div class="ui-panel">
+                    <p id="chef-text">"Welcome Boss. The orange cat is hungry!"</p>
+                    <div class="action-buttons">
+                        <button id="start-btn" class="btn-large">START SHIFT</button>
+                        <button id="lb-btn" class="btn-icon" title="Leaderboard"></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-board">
+                <div class="board-area" id="board">
+                    <div class="empty-state">Store Closed.</div>
+                </div>
+                
+                <div class="tray-area">
+                    <div class="tray-bg">
+                        <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+                        <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+                    </div>
+                    <div id="tray" class="tray-items"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="conveyor-belt">
+            <div class="belt-track"></div>
+            <div id="belt-items"></div>
+            <div class="customer-zone">
+                <canvas id="customerCanvas"></canvas>
+            </div>
+        </div>
+
+        <div id="modal" class="modal hidden">
+            <h1 id="modal-title">GAME OVER</h1>
+            <p id="modal-desc">The belt is empty! Customer left!</p>
+            <div class="leaderboard-container relative">
+                <h3>--- TOP 3 RECORD ---</h3>
+                <ol id="end-leaderboard-list"></ol>
+            </div>
+            <button id="restart-btn">PLAY AGAIN</button>
+        </div>
+
+        <div id="lb-modal" class="modal hidden">
+            <div class="leaderboard-container relative">
+                <button id="close-lb" class="close-btn">X</button>
+                <h3 id="lb-title" style="color: #fde047; cursor: pointer; user-select: none;">--- HALL OF FAME ---</h3>
+                <ol id="global-leaderboard-list"></ol>
+            </div>
+        </div>
+    </div>
+
+    <div id="tooltip" class="hidden">
+        <div class="tt-header"><strong id="tt-name">Name</strong></div>
+        <div class="tt-body"><span id="tt-mat">Material</span></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
