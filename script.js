@@ -1,9 +1,30 @@
 // ==========================================
-// 1. 寿司图鉴配置
+// 1. 全局等比放大引擎 (模拟器核心)
+// ==========================================
+function adjustScale() {
+    const machine = document.querySelector('.arcade-machine');
+    if (window.innerWidth <= 600) {
+        machine.style.transform = 'none';
+        machine.style.width = '100%';
+        machine.style.height = '100%';
+        return;
+    }
+    machine.style.width = '760px';
+    machine.style.height = '480px';
+    const scaleX = window.innerWidth / 780; 
+    const scaleY = window.innerHeight / 500; 
+    const scale = Math.min(scaleX, scaleY);
+    machine.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', adjustScale);
+adjustScale();
+
+// ==========================================
+// 2. 寿司图鉴配置与图像预渲染
 // ==========================================
 const SUSHI_DB = [
     { id: "sake", name: "Sake (Salmon)", mat: "Atlantic Salmon", colors: { 'A': '#f97316', 'B': '#fdba74' }, pixels: ["000011111111110000","0001AAAAAAAAAAB100","001ABAAAAAAAABAA10","01AABAAAAAAABAAAA1","1AAABAAAAAABAAAAA1","111111111111111111","01rrrrrrrrrrrrrs10","01rrrrrrrrrrrsss10","001rrrrrrrrrsss100","000111111111111000"] },
-    { id: "ebi", name: "Ebi (Shrimp)", mat: "Boiled Tiger Shrimp", colors: { 'A': '#fff', 'B': '#ef4444', 'C': '#f97316' }, pixels: ["000111111110000000","001BABABABA1011000","01ABABABABA11CC100","1BABABABAAB1CCCC10","1ABABABABAB1CCCC10","111111111111111110","01rrrrrrrrrrs10000","01rrrrrrrrrss10000","001rrrrrrrrs100000","000111111111000000"] },
+    { id: "ebi", name: "Ebi (Shrimp)", mat: "Boiled Tiger Shrimp", colors: { 'A': '#fff', 'B': '#ef4444', 'C': '#f97316' }, pixels: ["000111111110000000","001BABABABA1011000","01ABABABABA11CC100","1BABABABAAB1CCCC10","1ABABABABAB1CCCC10","111111111111111110","01rrrrrrrrrrs10000","01rrrrrrrrrsss1000","001rrrrrrrrs100000","000111111111000000"] },
     { id: "tamago", name: "Tamago (Egg)", mat: "Sweet Rolled Omelet", colors: { 'A': '#fef08a', 'B': '#eab308' }, pixels: ["000111111111110000","001AAAAAAAAAAB1000","01AAAAAAAAAAAB1000","1BBAAAAAAAAABB1000","1nn111111111nn1000","1nn1rrrrrrrrnn1110","1nn1rrrrrrrrnns100","1nn1rrrrrrrnns1000","011111111111110000"] },
     { id: "uni", name: "Uni (Urchin)", mat: "Premium Urchin", colors: { 'A': '#eab308', 'B': '#ca8a04' }, pixels: ["00011111100000","011BABAAB11000","1BAABABABBAB10","1nnnnnnnnnnnn1","1nAAAAAAAAAAn1","1nnnnnnnnnnnn1","1nrrrrrrrrrsn1","1nrrrrrrrrssn1","1nrrrrrrrsssn1","01111111111110"] },
     { id: "tako", name: "Tako (Octopus)", mat: "Boiled Tentacle", colors: { 'A': '#fecdd3', 'B': '#be123c', 'C': '#fff' }, pixels: ["0000111111100000","0001BBBBBBB10000","001C1BAAAB1C1000","01C11BAAAB11C100","11111BAAAB111110","1AAABAAAAABAAA10","1111111111111110","01rrrrrrrrrrs100","01rrrrrrrrss1000","0011111111110000"] },
@@ -33,19 +54,7 @@ SUSHI_DB.forEach(s => { TILE_CACHE[s.id] = generateSushiImage(s, false); BELT_CA
 function getPixelTrophy() {
     const cvs = document.createElement('canvas'); const ctx = cvs.getContext('2d');
     cvs.width = 24; cvs.height = 24;
-    const pxls = [
-        "000000000000",
-        "011111111110",
-        "110111111011",
-        "110111111011",
-        "011111111110",
-        "000111111000",
-        "000011110000",
-        "000001100000",
-        "000011110000",
-        "000111111000",
-        "000000000000"
-    ];
+    const pxls = ["000000000000","011111111110","110111111011","110111111011","011111111110","000111111000","000011110000","000001100000","000011110000","000111111000","000000000000"];
     for(let y=0; y<pxls.length; y++) for(let x=0; x<pxls[y].length; x++) {
         if(pxls[y][x]==='1') { ctx.fillStyle = '#fde047'; ctx.fillRect(x*2, y*2, 2, 2); }
         if(pxls[y][x]==='0') { ctx.fillStyle = '#000'; ctx.fillRect(x*2, y*2, 2, 2); }
@@ -55,25 +64,15 @@ function getPixelTrophy() {
 document.getElementById('lb-btn').innerHTML = `<img src="${getPixelTrophy()}" style="width:24px; height:24px; image-rendering:pixelated;">`;
 
 // ==========================================
-// 2. 猫主厨与吃客动画
+// 3. 猫主厨与吃客动画
 // ==========================================
 const CHEF_LIST = [
     { id: 'bamo', name: 'BAMO', colors: { 'W': '#f8fafc', 'S': '#f8fafc' } }, 
     { id: 'coffee', name: 'COFFEE', colors: { 'W': '#9ca3af', 'S': '#4b5563' } },
     { id: 'mango', name: 'MANGO', colors: { 'W': '#fcd34d', 'S': '#ea580c' } }
 ];
-let currentChefIdx = 0;
-
-document.getElementById('prev-chef').addEventListener('click', () => {
-    if(gamePhase === 'PLAYING') return; 
-    currentChefIdx = (currentChefIdx - 1 + CHEF_LIST.length) % CHEF_LIST.length;
-    document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
-});
-document.getElementById('next-chef').addEventListener('click', () => {
-    if(gamePhase === 'PLAYING') return;
-    currentChefIdx = (currentChefIdx + 1) % CHEF_LIST.length;
-    document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
-});
+let currentChefIdx = parseInt(localStorage.getItem('NekoMyChefIdx')) || 0;
+document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
 
 const chefCvs = document.getElementById('chefCanvas'); const cCtx = chefCvs.getContext('2d');
 const custCvs = document.getElementById('customerCanvas'); const custCtx = custCvs.getContext('2d');
@@ -93,7 +92,6 @@ const ANIM = {
 
 function drawCanvases() {
     cCtx.clearRect(0, 0, chefCvs.width, chefCvs.height); custCtx.clearRect(0,0,80,70);
-    
     const isMaking = gamePhase === 'PLAYING';
     const chefFrame = isMaking && (Math.floor(renderTick / 10) % 2 === 0) ? ANIM.chef_make : ANIM.chef_idle;
     const baseColors = {'#':'#111', 'E':'#fca5a5', 'H':'#ef4444', 'C':'#1e293b'};
@@ -115,9 +113,19 @@ function drawCanvases() {
 drawCanvases();
 
 // ==========================================
-// 3. 生存与中场休息逻辑 
+// 4. 🌟 排行榜核心：加入防御性数据容错，防止脏数据卡死 🌟
 // ==========================================
-let leaderboard = JSON.parse(localStorage.getItem('nekoSushiRankings')) || [];
+let leaderboard = [];
+function loadLeaderboard() {
+    try {
+        const saved = localStorage.getItem('NekoSushiRankings');
+        leaderboard = JSON.parse(saved);
+        if (!Array.isArray(leaderboard)) leaderboard = [];
+    } catch(e) {
+        leaderboard = []; // 只要解析报错，一秒重置为干净的数组，防止崩溃
+    }
+}
+loadLeaderboard(); // 页面初始化载入
 
 const boardEl = document.getElementById('board');
 const trayEl = document.getElementById('tray');
@@ -168,32 +176,40 @@ startBtn.addEventListener('click', () => {
     }, 100);
 });
 
-// 🌟 修复恶性死局 BUG 的核心位置 🌟
 function generateLevel(lvl) {
     tilesData = []; trayArray = []; boardEl.innerHTML = ''; trayEl.innerHTML = '';
     
-    // 组数 = (12 + (lvl -1) * 3) 
+    const bw = boardEl.clientWidth;
+    const bh = boardEl.clientHeight;
+
     let groups = 12 + (lvl - 1) * 3;
     let deck = [];
     for(let i=0; i<groups; i++) {
         const type = SUSHI_DB[Math.floor(Math.random() * SUSHI_DB.length)];
-        deck.push(type, type, type); // 每次塞入3张，保证总是3的倍数
+        deck.push(type, type, type); 
     }
     deck.sort(() => Math.random() - 0.5);
 
     const layers = 4 + Math.floor(lvl/2);
     
-    // 不再用 itemsThisLayer 截断，而是把 deck 里的每一张牌都精准分配到各个 Z 轴层！
+    const arenaW = Math.min(350, bw - 20);
+    const arenaH = Math.min(170, bh - 20);
+
+    const offsetX = (bw - arenaW) / 2;
+    const offsetY = (bh - arenaH) / 2;
+    
     for(let i=0; i<deck.length; i++) {
-        const z = i % layers; // 均匀分配到各个层，防止 Math.floor 吞掉尾数
-        const x = 20 + Math.random() * 370; 
-        const y = 20 + Math.random() * 110;
+        const z = i % layers; 
+        const x = offsetX + Math.random() * (arenaW - 44); 
+        const y = offsetY + Math.random() * (arenaH - 52); 
         createTile(i, deck[i], x, y, z);
     }
-    
     updateBoard();
 }
 
+// ==========================================
+// 5. 消除交互与动态相对静止物理系统
+// ==========================================
 function createTile(id, sDef, x, y, z) {
     const el = document.createElement('div'); el.className = 'tile';
     el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.zIndex = z;
@@ -216,9 +232,6 @@ function updateBoard() {
     });
 }
 
-// ==========================================
-// 4. 消除、传送与 休息(Intermission) 判定
-// ==========================================
 function handleTileClick(tile) {
     if(tile.element.classList.contains('blocked') || trayArray.length >= 7) return;
     tilesData = tilesData.filter(t => t.id !== tile.id);
@@ -252,8 +265,7 @@ function checkMatches() {
                 statusMsg.innerText = "RESTING...";
                 statusMsg.style.color = '#fde047';
                 
-                startBtn.disabled = false;
-                startBtn.innerText = "NEXT LEVEL";
+                startBtn.disabled = false; startBtn.innerText = "NEXT LEVEL";
                 document.getElementById('lb-btn').disabled = false;
                 document.querySelectorAll('.chef-arrow').forEach(a => a.style.display = 'block'); 
             }
@@ -265,15 +277,24 @@ function checkMatches() {
 
 function serveToBelt(sDef) {
     const img = document.createElement('img'); img.src = BELT_CACHE[sDef.id]; img.className = 'sliding-sushi';
+    
     img.addEventListener('mouseenter', () => { document.getElementById('tt-name').innerText = sDef.name; document.getElementById('tt-mat').innerText = sDef.mat; tooltip.classList.remove('hidden'); });
     img.addEventListener('mousemove', e => { tooltip.style.left = e.pageX + 15 + 'px'; tooltip.style.top = e.pageY + 15 + 'px'; });
     img.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
+    
     beltEl.appendChild(img);
+
+    const beltWidth = beltEl.clientWidth;
+    const distance = beltWidth + 60; 
+    const duration = distance / 100; 
+    
+    img.style.transition = `transform ${duration}s linear`;
+    img.offsetWidth; 
+    img.style.transform = `translateX(${distance}px)`;
 
     setTimeout(() => {
         if(img.parentNode) img.parentNode.removeChild(img);
         tooltip.classList.add('hidden');
-        
         if(gamePhase === 'OVER' || gamePhase === 'IDLE') return;
 
         score += 1; 
@@ -283,11 +304,11 @@ function serveToBelt(sDef) {
         document.getElementById('chef-text').innerText = `"Yum! Sushi Eaten: ${score}"`;
         setTimeout(() => isCustomerEating = false, 600); 
 
-    }, 7200); 
+    }, duration * 1000); 
 }
 
 // ==========================================
-// 5. 排行榜 (严格前3名) 与数据重置
+// 6. 结算排版与复位控制
 // ==========================================
 function renderLeaderboard(targetId) {
     const listEl = document.getElementById(targetId);
@@ -295,8 +316,6 @@ function renderLeaderboard(targetId) {
         listEl.innerHTML = '<li class="empty-lb">No records yet.</li>';
         return;
     }
-    
-    // 🌟 修复：严格切割，只展示 Top 3 🌟
     listEl.innerHTML = leaderboard.slice(0, 3).map((entry, idx) => {
         let medal = '';
         if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
@@ -312,11 +331,8 @@ function gameOver(isTrayFull) {
     
     if (score > 0 || level > 1) {
         leaderboard.push({ chef: CHEF_LIST[currentChefIdx].name, level: level, score: score });
-        leaderboard.sort((a,b) => {
-            if (b.level !== a.level) return b.level - a.level;
-            return b.score - a.score;
-        });
-        localStorage.setItem('nekoSushiRankings', JSON.stringify(leaderboard));
+        leaderboard.sort((a,b) => b.level !== a.level ? b.level - a.level : b.score - a.score);
+        localStorage.setItem('NekoSushiRankings', JSON.stringify(leaderboard));
     }
     
     renderLeaderboard('end-leaderboard-list');
@@ -326,23 +342,26 @@ function gameOver(isTrayFull) {
     document.getElementById('modal').classList.remove('hidden');
 }
 
-// 重新开始游戏
 document.getElementById('restart-btn').addEventListener('click', () => {
     document.getElementById('modal').classList.add('hidden');
     boardEl.innerHTML = '<div class="empty-state">Store Closed.</div>';
     trayEl.innerHTML = ''; beltEl.innerHTML = '';
     
+    // 数据与视图双重复位归 1
+    level = 1;
+    score = 0;
+    document.getElementById('level-display').innerText = level;
+    document.getElementById('score-display').innerText = "000";
+    
     document.getElementById('chef-text').innerText = `"Ready for another shift, Boss?"`;
     startBtn.disabled = false; startBtn.innerText = "START SHIFT";
     document.getElementById('lb-btn').disabled = false;
     document.querySelectorAll('.chef-arrow').forEach(a => a.style.display = 'block'); 
-    statusMsg.innerText = "NEKO SUSHI RUSH";
+    statusMsg.innerText = "NekoSushi";
     statusMsg.style.color = '#10b981';
-    
     gamePhase = 'IDLE';
 });
 
-// 独立排行榜弹窗
 document.getElementById('lb-btn').addEventListener('click', () => {
     if(gamePhase === 'PLAYING') return; 
     renderLeaderboard('global-leaderboard-list');
@@ -352,11 +371,15 @@ document.getElementById('close-lb').addEventListener('click', () => {
     document.getElementById('lb-modal').classList.add('hidden');
 });
 
-// 重置排行榜数据
-document.getElementById('reset-lb-btn').addEventListener('click', () => {
-    if(confirm("Delete all records? This cannot be undone.")) {
-        leaderboard = [];
-        localStorage.removeItem('nekoSushiRankings');
-        renderLeaderboard('global-leaderboard-list');
-    }
+document.getElementById('prev-chef').addEventListener('click', () => {
+    if(gamePhase === 'PLAYING') return; 
+    currentChefIdx = (currentChefIdx - 1 + CHEF_LIST.length) % CHEF_LIST.length;
+    document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
+    localStorage.setItem('NekoMyChefIdx', currentChefIdx);
+});
+document.getElementById('next-chef').addEventListener('click', () => {
+    if(gamePhase === 'PLAYING') return;
+    currentChefIdx = (currentChefIdx + 1) % CHEF_LIST.length;
+    document.getElementById('chef-badge').innerText = CHEF_LIST[currentChefIdx].name;
+    localStorage.setItem('NekoMyChefIdx', currentChefIdx);
 });
